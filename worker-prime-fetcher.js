@@ -1,13 +1,13 @@
 import { createClient } from "@libsql/client";
 export default {
   async scheduled(event, env, ctx) {
-const db = createClient({
+    const db = createClient({
       url: env.TURSO_DATABASE_URL,
       authToken: env.TURSO_AUTH_TOKEN,
     });
-    await syncJikan(env);
-    await refreshMissingImages(env);
 
+    await syncJikan(env, db);
+    await refreshMissingImages(env, db);
   }
 };
 
