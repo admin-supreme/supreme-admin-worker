@@ -1,0 +1,18 @@
+name = "anilist-sync"
+main = "worker-prime-fetcher.js"
+compatibility_date = "2024-12-01"
+workers_dev = true
+
+[triggers]
+crons = [
+  "0 */6 * * *",
+  "0 */12 * * *"
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "neon-anime-db"
+database_id = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzE5NTE0NDIsImlkIjoiZGY1MzQ0OWEtZmNlNi00YzIwLTlhNWMtODdlY2JkZjZkNjA0IiwicmlkIjoiODcwYzBmZDUtNWM4Ny00MGYwLWFhZTYtYTE0YTUyZmEwZDk1In0.cWqnDj2zOEoFRh_ueCSPy9U0yUiBFiV77Jf5_5g6S8KUA8enIJOqlt4QKfcP0q9xboj7jAShJFtnGh6Cr1k0Dw"
+
+[vars]
+TMDB_API_KEY = "780f18e29881652947442f319032ebba"
