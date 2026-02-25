@@ -88,11 +88,14 @@ const results = result.rows;
 
       if (!tmdbPoster) continue;
 
-      await db.execute(`
-        UPDATE anime_info
-        SET image_url = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).bind(tmdbPoster, anime.id).run();
+      await db.execute({
+  sql: `
+    UPDATE anime_info
+    SET image_url = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `,
+  args: [tmdbPoster, anime.id]
+});
 
     } catch (err) {
       console.log("REFRESH FAILED:", anime.title);
@@ -245,7 +248,8 @@ function generateSlug(title) {
 }
 async function upsertAnime(db, anime) {
 
-  await db.execute(`
+  await db.execute({
+  sql: `
     INSERT INTO anime_info (
       id,
       type,
@@ -316,7 +320,7 @@ async function upsertAnime(db, anime) {
       members = excluded.members,
       favorites = excluded.favorites,
       updated_at = CURRENT_TIMESTAMP
-  `).bind(
+  `,  args: [
     anime.id,
     anime.type,
     anime.title,
@@ -351,6 +355,7 @@ async function upsertAnime(db, anime) {
     anime.scored_by,
     anime.members,
     anime.favorites
-  ).run();
+  ] 
+  });
 
-}
+                           }
