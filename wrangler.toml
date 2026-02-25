@@ -1,0 +1,15 @@
+name = "anilist-sync"
+main = "worker-prime-fetcher.js"
+compatibility_date = "2024-12-01"
+workers_dev = true
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = [
+  "0 */6 * * *",
+  "0 */12 * * *"
+]
+[vars]
+TURSO_DATABASE_URL = "libsql://neon-anime-db-lupinarashi.aws-ap-south-1.turso.io"
+TURSO_AUTH_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzE5NTM3ODIsImlkIjoiZGY1MzQ0OWEtZmNlNi00YzIwLTlhNWMtODdlY2JkZjZkNjA0IiwicmlkIjoiODcwYzBmZDUtNWM4Ny00MGYwLWFhZTYtYTE0YTUyZmEwZDk1In0.KxuWjcuRgXJQhyUBNjsKMxMdHmW6kLE26Zz320NJ0wQ0ln8IvXHIU9655MQy8Yayjdl-CqER6ewa0iuYPRvoDg"
+TMDB_API_KEY = "780f18e29881652947442f319032ebba"
