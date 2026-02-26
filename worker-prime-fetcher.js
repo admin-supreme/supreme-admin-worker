@@ -9,6 +9,8 @@ export default {
   const db = createClient({
     url: env.TURSO_DATABASE_URL,
     authToken: env.TURSO_AUTH_TOKEN,
+  } catch (err) {
+    console.error("CRON FAILED:", err);
   });
 
   const hourUTC = new Date().getUTCHours();
