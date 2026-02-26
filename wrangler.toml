@@ -12,3 +12,6 @@ crons = [
 [[kv_namespaces]]
 binding = "STATE"
 id = "a27b4f2d29124505a560ef727a1f4d36"
+
+[vars]
+START_PAGE = "1"
