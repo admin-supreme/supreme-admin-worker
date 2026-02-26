@@ -6,26 +6,26 @@ export default {
       status: 200,
     });
   },
-  async scheduled(event, env, ctx) {
-    try {
-      const db = createClient({
-        url: env.TURSO_DATABASE_URL,
-        authToken: env.TURSO_AUTH_TOKEN,
-      });
+async scheduled(event, env, ctx) {
+  const db = createClient({
+    url: env.TURSO_DATABASE_URL,
+    authToken: env.TURSO_AUTH_TOKEN,
+  });
 
+  ctx.waitUntil((async () => {
+    try {
       const hourUTC = new Date().getUTCHours();
 
       if (hourUTC < 20) {
-        ctx.waitUntil(syncJikan(env, db));
+        await syncJikan(env, db);
       } else {
-        ctx.waitUntil(refreshMissingImages(env, db));
+        await refreshMissingImages(env, db);
       }
-
     } catch (err) {
       console.error("CRON FAILED:", err);
     }
-  }
-};
+  })());
+}
 async function syncJikan(env, db) {
   let page;
   const overrideApplied = await env.STATE.get("jikan_override_applied");
@@ -85,7 +85,8 @@ async function refreshMissingImages(env, db) {
     WHERE image_url IS NULL
        OR image_url NOT LIKE '%image.tmdb.org%'
     LIMIT 16
-  `
+  `,
+  args: []
 });
 const results = result.rows;
   for (const anime of results) {
@@ -342,4 +343,4 @@ async function upsertAnime(db, anime) {
     anime.favorites
   ] 
   });
-                                           }
+}
