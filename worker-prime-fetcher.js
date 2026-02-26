@@ -1,4 +1,5 @@
 import { createClient } from "@libsql/client/web";
+
 export default {
   async fetch(request, env, ctx) {
     return new Response("Worker is running (cron only).", {
@@ -6,23 +7,24 @@ export default {
     });
   },
   async scheduled(event, env, ctx) {
-  const db = createClient({
-    url: env.TURSO_DATABASE_URL,
-    authToken: env.TURSO_AUTH_TOKEN,
-  } catch (err) {
-    console.error("CRON FAILED:", err);
-  });
+    try {
+      const db = createClient({
+        url: env.TURSO_DATABASE_URL,
+        authToken: env.TURSO_AUTH_TOKEN,
+      });
 
-  const hourUTC = new Date().getUTCHours();
+      const hourUTC = new Date().getUTCHours();
 
-  if (hourUTC < 20) {
-    // First 20 hours: run syncJikan only
-    ctx.waitUntil(syncJikan(env, db));
-  } else {
-    // Last 4 hours: run refreshMissingImages only
-    ctx.waitUntil(refreshMissingImages(env, db));
+      if (hourUTC < 20) {
+        ctx.waitUntil(syncJikan(env, db));
+      } else {
+        ctx.waitUntil(refreshMissingImages(env, db));
+      }
+
+    } catch (err) {
+      console.error("CRON FAILED:", err);
+    }
   }
-}
 };
 async function syncJikan(env, db) {
 
