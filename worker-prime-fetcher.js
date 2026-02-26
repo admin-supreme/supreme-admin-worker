@@ -29,7 +29,18 @@ export default {
 async function syncJikan(env, db) {
 
   // 1️⃣ Get current page from KV
-  let page = parseInt(await env.STATE.get("jikan_page") || "1");
+  let page;
+if (env.START_PAGE && env.START_PAGE !== "") {
+  page = parseInt(env.START_PAGE);
+  await env.STATE.put("jikan_page", String(page));
+  await env.STATE.put("jikan_offset", "0");
+
+  console.log("Manual START_PAGE override:", page);
+} else {
+  // ✅ Normal resume mode
+  page = parseInt(await env.STATE.get("jikan_page") || "1");
+}
+
 let offset = parseInt(await env.STATE.get("jikan_offset") || "0");
 
 const BATCH_SIZE = 13;
