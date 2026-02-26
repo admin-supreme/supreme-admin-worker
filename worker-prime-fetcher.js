@@ -20,8 +20,10 @@ export default {
 async function syncJikan(env, db) {
 
   // 1️⃣ Get current page from KV
-  let page = await env.STATE.get("jikan_page");
-  page = page ? parseInt(page) : 1;
+  let page = parseInt(await env.STATE.get("jikan_page") || "1");
+let offset = parseInt(await env.STATE.get("jikan_offset") || "0");
+
+const BATCH_SIZE = offset === 0 ? 13 : 12; // safe for CF limits
 
   console.log("Fetching Jikan page:", page);
 
@@ -35,9 +37,9 @@ async function syncJikan(env, db) {
     return;
   }
 
-  const limitedList = mediaList.slice(0, 10);
+  const batch = mediaList.slice(offset, offset + BATCH_SIZE);
 
-for (const media of limitedList) {
+for (const media of batch) {
     try {
       const transformed = transform(media);
 
@@ -62,14 +64,20 @@ for (const media of limitedList) {
   }
 
   // 2️⃣ Decide next page
+  const newOffset = offset + BATCH_SIZE;
+
+if (newOffset >= mediaList.length) {
+  // Finished this page → move to next page
   const nextPage = hasNext ? page + 1 : 1;
 
-  console.log("Next page will be:", nextPage);
-
   await env.STATE.put("jikan_page", String(nextPage));
+  await env.STATE.put("jikan_offset", "0");
+} else {
+  // Still items remaining on same page
+  await env.STATE.put("jikan_offset", String(newOffset));
+}
 }
 async function refreshMissingImages(env, db) {
-
   const result = await db.execute({
   sql: `
     SELECT id, title, year, image_url
@@ -179,6 +187,7 @@ function transform(media) {
     year: media.year || null,
     type: media.type || null,
     overview: media.synopsis || null,
+    studio: media.studios?.[0]?.name || null,
 
     episodes: media.episodes || 0,
     duration: media.duration || null,
@@ -198,8 +207,6 @@ function transform(media) {
     airing_date: media.aired?.from
       ? media.aired.from.split("T")[0]
       : null,
-
-    studio: media.studios?.[0]?.name || null,
 
     tags: JSON.stringify(
       (media.genres || []).map(g => g.name)
@@ -264,6 +271,7 @@ async function upsertAnime(db, anime) {
       mal_id,
       year,
       season,
+      studio,
       studios,
       audio,
       dubbed_languages,
@@ -291,7 +299,7 @@ async function upsertAnime(db, anime) {
       members,
       favorites
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
 
     ON CONFLICT(mal_id) DO UPDATE SET
       id = excluded.id,
@@ -301,6 +309,7 @@ async function upsertAnime(db, anime) {
       title_synonyms = excluded.title_synonyms,
       year = excluded.year,
       season = excluded.season,
+      studio = excluded.studio,
       studios = excluded.studios,
       duration = excluded.duration,
       episodes = excluded.episodes,
@@ -334,6 +343,7 @@ async function upsertAnime(db, anime) {
     anime.mal_id,
     anime.year,
     anime.season,
+    anime.studio,
     anime.studios,
     anime.audio,
     anime.dubbed_languages,
