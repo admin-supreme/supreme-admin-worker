@@ -138,7 +138,7 @@ const results = result.rows;
 async function fetchJikan(page) {
   try {
     const res = await fetch(
-      `https://api.jikan.moe/v4/top/anime?page=${page}`
+      `https://api.jikan.moe/v4/anime?page=${page}`
     );
 
     if (!res.ok) return { data: [], pagination: null };
@@ -393,4 +393,4 @@ async function upsertAnime(db, anime) {
   ] 
   });
 
-}
+    }
