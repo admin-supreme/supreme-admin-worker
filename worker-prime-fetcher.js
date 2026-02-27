@@ -26,6 +26,7 @@ async scheduled(event, env, ctx) {
     }
   })());
 }
+    }
 async function syncJikan(env, db, event) {
   let page;
   const overrideApplied = await env.STATE.get("jikan_override_applied");
