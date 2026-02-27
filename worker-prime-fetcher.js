@@ -17,17 +17,16 @@ async scheduled(event, env, ctx) {
       const hourUTC = new Date().getUTCHours();
 
       if (hourUTC < 20) {
-        await syncJikan(env, db);
-      } else {
-        await refreshMissingImages(env, db);
-      }
+  await syncJikan(env, db, event);
+} else if (hourUTC >= 20) {
+  await refreshMissingImages(env, db, event);
+}
     } catch (err) {
       console.error("CRON FAILED:", err);
     }
   })());
 }
-};
-async function syncJikan(env, db) {
+async function syncJikan(env, db, event) {
   let page;
   const overrideApplied = await env.STATE.get("jikan_override_applied");
 if (env.START_PAGE && env.START_PAGE !== "" && !overrideApplied) {
@@ -51,6 +50,10 @@ const BATCH_SIZE = 13;
   }
   const batch = mediaList.slice(offset, offset + BATCH_SIZE);
 for (const media of batch) {
+  if (Date.now() - event.scheduledTime > 50000) {
+    console.log("Stopping early to prevent CPU exceed");
+    break;
+  }
     try {
       const transformed = transform(media);
       const tmdbPoster = await fetchHighResPoster(
@@ -78,45 +81,96 @@ if (newOffset >= mediaList.length) {
   await env.STATE.put("jikan_offset", String(newOffset));
 }
 }
-async function refreshMissingImages(env, db) {
+async function refreshMissingImages(env, db, event) {
+  const BATCH_SIZE = 15;
+
+  // ===== Manual Override Logic =====
+  const overrideApplied = await env.STATE.get("refresh_override_applied");
+
+  let lastId;
+
+  if (env.REFRESH_START_ID && !overrideApplied) {
+    lastId = env.REFRESH_START_ID;
+    await env.STATE.put("refresh_last_id", lastId);
+    await env.STATE.put("refresh_override_applied", "true");
+    console.log("Manual REFRESH_START_ID applied ONCE:", lastId);
+  } else {
+    lastId = await env.STATE.get("refresh_last_id") || "";
+  }
+
+  console.log("Refresh starting after ID:", lastId);
+
   const result = await db.execute({
-  sql: `
-    SELECT id, title, year, image_url
-    FROM anime_info
-    WHERE image_url IS NULL
-       OR image_url NOT LIKE '%image.tmdb.org%'
-    LIMIT 16
-  `,
-  args: []
-});
-const results = result.rows;
-  for (const anime of results) {
+    sql: `
+      SELECT id, title, year, image_url
+      FROM anime_info
+      WHERE (image_url IS NULL OR image_url NOT LIKE '%image.tmdb.org%')
+  AND image_retry_count < 3
+  AND id > ?
+      ORDER BY id
+      LIMIT ?
+    `,
+    args: [lastId, BATCH_SIZE]
+  });
+
+  const rows = result.rows;
+
+  if (!rows || rows.length === 0) {
+  console.log("Refresh completed. Resetting cursor.");
+  await env.STATE.put("refresh_last_id", "");
+  await env.STATE.delete("refresh_override_applied");
+  return;
+}
+
+  let newLastId = lastId;
+
+  for (const anime of rows) {
     try {
       const tmdbPoster = await fetchHighResPoster(
         env,
         anime.title,
         anime.year
       );
-      if (!tmdbPoster) continue;
-      await db.execute({
-  sql: `
-    UPDATE anime_info
-    SET image_url = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `,
-  args: [tmdbPoster, anime.id]
-});
+
+if (tmdbPoster) {
+  await db.execute({
+    sql: `
+      UPDATE anime_info
+      SET image_url = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `,
+    args: [tmdbPoster, anime.id]
+  });
+} else {
+  await db.execute({
+    sql: `
+      UPDATE anime_info
+      SET image_retry_count = image_retry_count + 1
+      WHERE id = ?
+    `,
+    args: [anime.id]
+  });
+}
+
+      newLastId = anime.id;
+
     } catch (err) {
       console.log("REFRESH FAILED:", anime.title);
     }
   }
+
+  // Save cursor
+  await env.STATE.put("refresh_last_id", newLastId);
 }
 async function fetchJikan(page) {
   try {
     const res = await fetch(
       `https://api.jikan.moe/v4/anime?page=${page}`
     );
-    if (!res.ok) return { data: [], pagination: null };
+    if (!res.ok) {
+  await res.text();
+  return { data: [], pagination: null };
+}
     return await res.json();
   } catch (err) {
     return { data: [], pagination: null };
@@ -129,7 +183,14 @@ async function fetchHighResPoster(env, title, year) {
   const tvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${env.TMDB_API_KEY}&query=${query}`;
 
   const tvRes = await fetch(tvUrl);
-  if (tvRes.ok) {
+  if (!tvRes.ok) {
+  if (tvRes.status === 429) {
+    console.log("TMDB rate limited");
+    await tvRes.text();
+    return null;
+  }
+  await tvRes.text();
+} else {
     const tvData = await tvRes.json();
 
     const animeTv = tvData.results?.find(r =>
@@ -144,7 +205,17 @@ async function fetchHighResPoster(env, title, year) {
   }
   const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${env.TMDB_API_KEY}&query=${query}`;
   const movieRes = await fetch(movieUrl);
-  if (!movieRes.ok) return null;
+
+if (!movieRes.ok) {
+  if (movieRes.status === 429) {
+    console.log("TMDB rate limited (Movie)");
+    await movieRes.text();
+    return null;
+  }
+
+  await movieRes.text();
+  return null;
+}
   const movieData = await movieRes.json();
 const animeMovie = movieData.results?.find(r =>
   r.poster_path &&
