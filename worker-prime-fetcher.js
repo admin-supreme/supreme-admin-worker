@@ -8,9 +8,11 @@ export default {
   },
 async scheduled(event, env, ctx) {
   const db = createClient({
-    url: env.TURSO_DATABASE_URL,
-    authToken: env.TURSO_AUTH_TOKEN,
-  });
+  url: env.TURSO_DATABASE_URL,
+  authToken: env.TURSO_AUTH_TOKEN,
+  intMode: "number",
+  fetch: fetch,
+});
 
   ctx.waitUntil((async () => {
     try {
