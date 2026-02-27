@@ -26,7 +26,7 @@ async scheduled(event, env, ctx) {
     }
   })());
 }
-    }
+}
 async function syncJikan(env, db, event) {
   let page;
   const overrideApplied = await env.STATE.get("jikan_override_applied");
@@ -40,7 +40,7 @@ if (env.START_PAGE && env.START_PAGE !== "" && !overrideApplied) {
   page = parseInt(await env.STATE.get("jikan_page") || "1");
 }
 let offset = parseInt(await env.STATE.get("jikan_offset") || "0");
-const BATCH_SIZE = 13;
+const BATCH_SIZE = 9;
   console.log("Fetching Jikan page:", page);
   const result = await fetchJikan(page);
   const mediaList = result.data;
@@ -83,7 +83,7 @@ if (newOffset >= mediaList.length) {
 }
 }
 async function refreshMissingImages(env, db, event) {
-  const BATCH_SIZE = 15;
+  const BATCH_SIZE = 12;
 
   // ===== Manual Override Logic =====
   const overrideApplied = await env.STATE.get("refresh_override_applied");
@@ -179,51 +179,54 @@ async function fetchJikan(page) {
 }
 async function fetchHighResPoster(env, title, year) {
   const query = encodeURIComponent(
-  year ? `${title} ${year}` : title
-);
+    year ? `${title} ${year}` : title
+  );
+
+  // ---- TV SEARCH ----
   const tvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${env.TMDB_API_KEY}&query=${query}`;
-
   const tvRes = await fetch(tvUrl);
-  if (!tvRes.ok) {
-  if (tvRes.status === 429) {
-    console.log("TMDB rate limited");
-    await tvRes.text();
-    return null;
-  }
-  await tvRes.text();
-} else {
-    const tvData = await tvRes.json();
 
+  let tvData = null;
+
+  if (tvRes.ok) {
+    tvData = await tvRes.json();
+  } else {
+    await tvRes.text(); // consume body to prevent deadlock
+  }
+
+  if (tvData) {
     const animeTv = tvData.results?.find(r =>
-  r.poster_path &&
-  r.genre_ids?.includes(16) &&
-  (!year || r.first_air_date?.startsWith(String(year)))
-);
+      r.poster_path &&
+      r.genre_ids?.includes(16) &&
+      (!year || r.first_air_date?.startsWith(String(year)))
+    );
 
     if (animeTv) {
       return `https://image.tmdb.org/t/p/original${animeTv.poster_path}`;
     }
   }
+
+  // ---- MOVIE SEARCH ----
   const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${env.TMDB_API_KEY}&query=${query}`;
   const movieRes = await fetch(movieUrl);
 
-if (!movieRes.ok) {
-  if (movieRes.status === 429) {
-    console.log("TMDB rate limited (Movie)");
-    await movieRes.text();
+  let movieData = null;
+
+  if (movieRes.ok) {
+    movieData = await movieRes.json();
+  } else {
+    await movieRes.text(); // consume body
     return null;
   }
 
-  await movieRes.text();
-  return null;
-}
-  const movieData = await movieRes.json();
-const animeMovie = movieData.results?.find(r =>
-  r.poster_path &&
-  r.genre_ids?.includes(16) &&
-  (!year || r.release_date?.startsWith(String(year)))
-);
+  const animeMovie = movieData.results?.find(r =>
+    r.poster_path &&
+    r.genre_ids?.includes(16) &&
+    (!year || r.release_date?.startsWith(String(year)))
+  );
+
   if (!animeMovie) return null;
+
   return `https://image.tmdb.org/t/p/original${animeMovie.poster_path}`;
 }
 function transform(media) {
@@ -416,4 +419,4 @@ async function upsertAnime(db, anime) {
     anime.favorites
   ] 
   });
-}
+    }
