@@ -1,4 +1,4 @@
-import { createClient } from "@libsql/client/web";
+import { createClient } from "@libsql/client";
 
 export default {
   async fetch(request, env, ctx) {
@@ -51,6 +51,7 @@ const BATCH_SIZE = 9;
   }
   const batch = mediaList.slice(offset, offset + BATCH_SIZE);
 for (const media of batch) {
+  await new Promise(r => setTimeout(r, 150));
   if (Date.now() - event.scheduledTime > 50000) {
     console.log("Stopping early to prevent CPU exceed");
     break;
@@ -184,7 +185,7 @@ async function fetchHighResPoster(env, title, year) {
 
   // ---- TV SEARCH ----
   const tvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${env.TMDB_API_KEY}&query=${query}`;
-  const tvRes = await fetch(tvUrl);
+  const tvRes = await fetch(tvUrl, { cf: { cacheTtl: 300 } });
 
   let tvData = null;
 
@@ -208,7 +209,7 @@ async function fetchHighResPoster(env, title, year) {
 
   // ---- MOVIE SEARCH ----
   const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${env.TMDB_API_KEY}&query=${query}`;
-  const movieRes = await fetch(movieUrl);
+const movieRes = await fetch(movieUrl, { cf: { cacheTtl: 300 } });
 
   let movieData = null;
 
