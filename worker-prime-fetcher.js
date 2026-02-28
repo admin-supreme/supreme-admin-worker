@@ -10,9 +10,7 @@ export default {
   console.error("Missing Turso configuration.");
   return;
 }
-const databaseUrl = env.TURSO_DATABASE_URL.startsWith("https://")
-  ? env.TURSO_DATABASE_URL.replace("https://", "libsql://")
-  : env.TURSO_DATABASE_URL;
+const databaseUrl = env.TURSO_DATABASE_URL;
     const db = createClient({
       url: databaseUrl,
       authToken: env.TURSO_AUTH_TOKEN,
