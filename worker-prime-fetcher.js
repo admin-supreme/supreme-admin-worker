@@ -363,7 +363,12 @@ async function upsertAnime(db, anime) {
         members,
         favorites
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
+      VALUES (
+?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+?, ?, ?, ?, ?
+)
 
       ON CONFLICT(mal_id) DO UPDATE SET
         id = excluded.id,
@@ -400,41 +405,41 @@ async function upsertAnime(db, anime) {
         updated_at = CURRENT_TIMESTAMP
     `,
     args: [
-      anime.id,
-      anime.type,
-      anime.title,
-      anime.title_japanese,
-      anime.title_synonyms,
-      anime.mal_id,
-      anime.year,
-      anime.season,
-      anime.studio,
-      anime.studios,
-      anime.audio,
-      anime.dubbed_languages,
-      anime.duration,
-      anime.episodes,
-      anime.tags,
-      anime.age_rating,
-      anime.total_seasons,
-      anime.airing_date,
-      anime.ended_date,
-      anime.airing_status,
-      anime.image_url,
-      anime.overview,
-      anime.producers,
-      anime.licensors,
-      anime.themes,
-      anime.demographics,
-      anime.trailer,
-      anime.source,
-      anime.popularity,
-      anime.rating,
-      anime.rank,
-      anime.top_genre_rank,
-      anime.scored_by,
-      anime.members,
-      anime.favorites
-    ] 
+  safe(anime.id),
+  safe(anime.type),
+  safe(anime.title),
+  safe(anime.title_japanese),
+  safe(anime.title_synonyms),
+  safe(anime.mal_id),
+  safe(anime.year),
+  safe(anime.season),
+  safe(anime.studio),
+  safe(anime.studios),
+  safe(anime.audio),
+  safe(anime.dubbed_languages),
+  safe(anime.duration),
+  safe(anime.episodes),
+  safe(anime.tags),
+  safe(anime.age_rating),
+  safe(anime.total_seasons),
+  safe(anime.airing_date),
+  safe(anime.ended_date),
+  safe(anime.airing_status),
+  safe(anime.image_url),
+  safe(anime.overview),
+  safe(anime.producers),
+  safe(anime.licensors),
+  safe(anime.themes),
+  safe(anime.demographics),
+  safe(anime.trailer),
+  safe(anime.source),
+  safe(anime.popularity),
+  safe(anime.rating),
+  safe(anime.rank),
+  safe(anime.top_genre_rank),
+  safe(anime.scored_by),
+  safe(anime.members),
+  safe(anime.favorites),
+]
   });
-}
+      }
