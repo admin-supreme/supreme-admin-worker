@@ -15,7 +15,6 @@ const databaseUrl = env.TURSO_DATABASE_URL;
       url: databaseUrl,
       authToken: env.TURSO_AUTH_TOKEN,
       intMode: "number",
-      fetch: fetch, 
     });
 
     ctx.waitUntil((async () => {
