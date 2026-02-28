@@ -442,4 +442,4 @@ async function upsertAnime(db, anime) {
   safe(anime.favorites),
 ]
   });
-      }
+}
