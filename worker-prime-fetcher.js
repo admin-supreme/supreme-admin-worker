@@ -54,7 +54,7 @@ if (isNaN(page) || page < 1) page = 1;
 }
 let offset = parseInt(env.STATE ? (await env.STATE.get("jikan_offset")) || "0" : "0", 10);
 if (isNaN(offset) || offset < 0) offset = 0;
-const BATCH_SIZE = 13;
+const BATCH_SIZE = 9;
   console.log("Fetching Jikan page:", page);
   const result = await fetchJikan(page);
   const mediaList = result.data;
@@ -207,7 +207,7 @@ async function fetchHighResPoster(env, title, year) {
     const query = encodeURIComponent(year ? `${title} ${year}` : title);
 
     // ---- TV SEARCH ----
-    const tvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${env.TMDB_API_KEY}&query=${query}`;
+    const tvUrl = `https://api.themoviedb.org/3/search/multi?api_key=${env.TMDB_API_KEY}&query=${query}`;
     const tvRes = await fetch(tvUrl, { cf: { cacheTtl: 300 } });
 
     if (tvRes.ok) {
@@ -225,7 +225,7 @@ async function fetchHighResPoster(env, title, year) {
     }
 
     // ---- MOVIE SEARCH ----
-    const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${env.TMDB_API_KEY}&query=${query}`;
+    const movieUrl = `https://api.themoviedb.org/3/search/multi?api_key=${env.TMDB_API_KEY}&query=${query}`;
     const movieRes = await fetch(movieUrl, { cf: { cacheTtl: 300 } });
 
     if (movieRes.ok) {
@@ -439,4 +439,4 @@ async function upsertAnime(db, anime) {
       anime.favorites
     ] 
   });
-           }
+}
