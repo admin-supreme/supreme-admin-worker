@@ -6,8 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [triggers]
 crons = [
-  "0 */6 * * *",
-  "* * * * *"
+  "0 */12 * * *"
 ]
 [[kv_namespaces]]
 binding = "STATE"
@@ -16,6 +15,6 @@ id = "a27b4f2d29124505a560ef727a1f4d36"
 [vars]
 START_PAGE = ""
 REFRESH_START_ID=""
-TURSO_DATABASE_URL="https://neon-anime-db-lupinarashi.aws-ap-south-1.turso.io"
+TURSO_DATABASE_URL="TURSO_URL"
 TURSO_AUTH_TOKEN="Token"
 TMDB_API_KEY="TmdbApiKey"
