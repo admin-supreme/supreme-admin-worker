@@ -1,63 +1,77 @@
 import { createClient } from "@libsql/client/web";
-
-export default {
-  async fetch(request, env, ctx) {
-    return new Response("Worker is running (cron only).", {
-      status: 200,
-    });
+export default {  
+  async fetch(request, env, ctx) {  
+    return new Response("Worker is running (cron only).", {  
+      status: 200,  
+    });  
   },
-async scheduled(event, env, ctx) {
-  const db = createClient({
-  url: env.TURSO_DATABASE_URL,
-  authToken: env.TURSO_AUTH_TOKEN,
-  intMode: "number",
-  fetch: fetch,
-});
+  async scheduled(event, env, ctx) {
+    if (!env.TURSO_DATABASE_URL || !env.TURSO_AUTH_TOKEN) {
+  console.error("Missing Turso configuration.");
+  return;
+}
+const databaseUrl = env.TURSO_DATABASE_URL.startsWith("https://")
+  ? env.TURSO_DATABASE_URL.replace("https://", "libsql://")
+  : env.TURSO_DATABASE_URL;
+    const db = createClient({
+      url: databaseUrl,
+      authToken: env.TURSO_AUTH_TOKEN,
+      intMode: "number",
+      fetch: fetch, 
+    });
 
-  ctx.waitUntil((async () => {
-    try {
-      const hourUTC = new Date().getUTCHours();
+    ctx.waitUntil((async () => {
+      try {
+        const hourUTC = new Date().getUTCHours();
+        if (hourUTC < 20) {
+          await syncJikan(env, db, event);
+        } else {
+          await refreshMissingImages(env, db, event);
+        }
+      } catch (err) {
+        console.error("CRON FATAL ERROR:", err);
+      }
+    })());
+  }
+};
 
-      if (hourUTC < 20) {
-  await syncJikan(env, db, event);
-} else if (hourUTC >= 20) {
-  await refreshMissingImages(env, db, event);
-}
-    } catch (err) {
-      console.error("CRON FAILED:", err);
-    }
-  })());
-}
-}
 async function syncJikan(env, db, event) {
   let page;
-  const overrideApplied = await env.STATE.get("jikan_override_applied");
+  const overrideApplied = env.STATE ? await env.STATE.get("jikan_override_applied") : null;
 if (env.START_PAGE && env.START_PAGE !== "" && !overrideApplied) {
-  page = parseInt(env.START_PAGE);
-  await env.STATE.put("jikan_page", String(page));
-  await env.STATE.put("jikan_offset", "0");
-  await env.STATE.put("jikan_override_applied", "true");
+  page = parseInt(env.START_PAGE, 10);
+if (isNaN(page) || page < 1) page = 1;
+
+  if (env.STATE) {
+    await env.STATE.put("jikan_page", String(page));
+    await env.STATE.put("jikan_offset", "0");
+    await env.STATE.put("jikan_override_applied", "true");
+  }
+
   console.log("Manual START_PAGE applied ONCE:", page);
 } else {
-  page = parseInt(await env.STATE.get("jikan_page") || "1");
+  page = parseInt(env.STATE ? (await env.STATE.get("jikan_page")) || "1" : "1");
 }
-let offset = parseInt(await env.STATE.get("jikan_offset") || "0");
-const BATCH_SIZE = 9;
+let offset = parseInt(env.STATE ? (await env.STATE.get("jikan_offset")) || "0" : "0", 10);
+if (isNaN(offset) || offset < 0) offset = 0;
+const BATCH_SIZE = 13;
   console.log("Fetching Jikan page:", page);
   const result = await fetchJikan(page);
   const mediaList = result.data;
   const hasNext = result.pagination?.has_next_page;
-  if (!mediaList || mediaList.length === 0) {
+if (!mediaList || mediaList.length === 0) {
+  if (env.STATE) {
     await env.STATE.put("jikan_page", "1");
-    return;
   }
+  return;
+}
   const batch = mediaList.slice(offset, offset + BATCH_SIZE);
 for (const media of batch) {
   await new Promise(r => setTimeout(r, 150));
-  if (Date.now() - event.scheduledTime > 50000) {
-    console.log("Stopping early to prevent CPU exceed");
-    break;
-  }
+  if (event?.scheduledTime && Date.now() - event.scheduledTime > 50000) {
+  console.log("Stopping early to prevent CPU exceed");
+  break;
+}
     try {
       const transformed = transform(media);
       const tmdbPoster = await fetchHighResPoster(
@@ -77,29 +91,35 @@ for (const media of batch) {
     }
   }
   const newOffset = offset + BATCH_SIZE;
-if (newOffset >= mediaList.length) {
-  const nextPage = hasNext ? page + 1 : 1;
-  await env.STATE.put("jikan_page", String(nextPage));
-  await env.STATE.put("jikan_offset", "0");
-} else {
-  await env.STATE.put("jikan_offset", String(newOffset));
+if (env.STATE) {
+  if (newOffset >= mediaList.length) {
+    const nextPage = hasNext ? page + 1 : 1;
+    await env.STATE.put("jikan_page", String(nextPage));
+    await env.STATE.put("jikan_offset", "0");
+  } else {
+    await env.STATE.put("jikan_offset", String(newOffset));
+  }
 }
 }
 async function refreshMissingImages(env, db, event) {
   const BATCH_SIZE = 12;
 
   // ===== Manual Override Logic =====
-  const overrideApplied = await env.STATE.get("refresh_override_applied");
+  const overrideApplied = env.STATE ? await env.STATE.get("refresh_override_applied") : null;
 
   let lastId;
 
   if (env.REFRESH_START_ID && !overrideApplied) {
-    lastId = env.REFRESH_START_ID;
+  lastId = env.REFRESH_START_ID;
+
+  if (env.STATE) {
     await env.STATE.put("refresh_last_id", lastId);
     await env.STATE.put("refresh_override_applied", "true");
-    console.log("Manual REFRESH_START_ID applied ONCE:", lastId);
+  }
+
+  console.log("Manual REFRESH_START_ID applied ONCE:", lastId);
   } else {
-    lastId = await env.STATE.get("refresh_last_id") || "";
+    lastId = env.STATE ? (await env.STATE.get("refresh_last_id")) || "" : "";
   }
 
   console.log("Refresh starting after ID:", lastId);
@@ -121,8 +141,10 @@ async function refreshMissingImages(env, db, event) {
 
   if (!rows || rows.length === 0) {
   console.log("Refresh completed. Resetting cursor.");
-  await env.STATE.put("refresh_last_id", "");
-  await env.STATE.delete("refresh_override_applied");
+  if (env.STATE) {
+    await env.STATE.put("refresh_last_id", "");
+    await env.STATE.delete("refresh_override_applied");
+  }
   return;
 }
 
@@ -162,9 +184,9 @@ if (tmdbPoster) {
       console.log("REFRESH FAILED:", anime.title);
     }
   }
-
-  // Save cursor
+  if (env.STATE) {
   await env.STATE.put("refresh_last_id", newLastId);
+}
 }
 async function fetchJikan(page) {
   try {
@@ -181,56 +203,51 @@ async function fetchJikan(page) {
   }
 }
 async function fetchHighResPoster(env, title, year) {
-  const query = encodeURIComponent(
-    year ? `${title} ${year}` : title
-  );
+  try {
+    const query = encodeURIComponent(year ? `${title} ${year}` : title);
 
-  // ---- TV SEARCH ----
-  const tvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${env.TMDB_API_KEY}&query=${query}`;
-  const tvRes = await fetch(tvUrl, { cf: { cacheTtl: 300 } });
+    // ---- TV SEARCH ----
+    const tvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${env.TMDB_API_KEY}&query=${query}`;
+    const tvRes = await fetch(tvUrl, { cf: { cacheTtl: 300 } });
 
-  let tvData = null;
-
-  if (tvRes.ok) {
-    tvData = await tvRes.json();
-  } else {
-    await tvRes.text(); // consume body to prevent deadlock
-  }
-
-  if (tvData) {
-    const animeTv = tvData.results?.find(r =>
-      r.poster_path &&
-      r.genre_ids?.includes(16) &&
-      (!year || r.first_air_date?.startsWith(String(year)))
-    );
-
-    if (animeTv) {
-      return `https://image.tmdb.org/t/p/original${animeTv.poster_path}`;
+    if (tvRes.ok) {
+      const tvData = await tvRes.json().catch(() => null);
+      if (tvData?.results) {
+        const animeTv = tvData.results.find(r =>
+          r.poster_path &&
+          r.genre_ids?.includes(16) &&
+          (!year || r.first_air_date?.startsWith(String(year)))
+        );
+        if (animeTv) {
+          return `https://image.tmdb.org/t/p/original${animeTv.poster_path}`;
+        }
+      }
     }
-  }
 
-  // ---- MOVIE SEARCH ----
-  const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${env.TMDB_API_KEY}&query=${query}`;
-const movieRes = await fetch(movieUrl, { cf: { cacheTtl: 300 } });
+    // ---- MOVIE SEARCH ----
+    const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${env.TMDB_API_KEY}&query=${query}`;
+    const movieRes = await fetch(movieUrl, { cf: { cacheTtl: 300 } });
 
-  let movieData = null;
+    if (movieRes.ok) {
+      const movieData = await movieRes.json().catch(() => null);
+      if (movieData?.results) {
+        const animeMovie = movieData.results.find(r =>
+          r.poster_path &&
+          r.genre_ids?.includes(16) &&
+          (!year || r.release_date?.startsWith(String(year)))
+        );
+        if (animeMovie) {
+          return `https://image.tmdb.org/t/p/original${animeMovie.poster_path}`;
+        }
+      }
+    }
 
-  if (movieRes.ok) {
-    movieData = await movieRes.json();
-  } else {
-    await movieRes.text(); // consume body
+    return null;
+
+  } catch (err) {
+    console.log("TMDB FETCH FAILED:", err);
     return null;
   }
-
-  const animeMovie = movieData.results?.find(r =>
-    r.poster_path &&
-    r.genre_ids?.includes(16) &&
-    (!year || r.release_date?.startsWith(String(year)))
-  );
-
-  if (!animeMovie) return null;
-
-  return `https://image.tmdb.org/t/p/original${animeMovie.poster_path}`;
 }
 function transform(media) {
   const title = media.title_english || media.title;
@@ -309,117 +326,117 @@ function generateSlug(title) {
     .replace(/\s+/g, "-");
 }
 async function upsertAnime(db, anime) {
-
   await db.execute({
-  sql: `
-    INSERT INTO anime_info (
-      id,
-      type,
-      title,
-      title_japanese,
-      title_synonyms,
-      mal_id,
-      year,
-      season,
-      studio,
-      studios,
-      audio,
-      dubbed_languages,
-      duration,
-      episodes,
-      tags,
-      age_rating,
-      total_seasons,
-      airing_date,
-      ended_date,
-      airing_status,
-      image_url,
-      overview,
-      producers,
-      licensors,
-      themes,
-      demographics,
-      trailer,
-      source,
-      popularity,
-      rating,
-      rank,
-      top_genre_rank,
-      scored_by,
-      members,
-      favorites
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
+    sql: `
+      INSERT INTO anime_info (
+        id,
+        type,
+        title,
+        title_japanese,
+        title_synonyms,
+        mal_id,
+        year,
+        season,
+        studio,
+        studios,
+        audio,
+        dubbed_languages,
+        duration,
+        episodes,
+        tags,
+        age_rating,
+        total_seasons,
+        airing_date,
+        ended_date,
+        airing_status,
+        image_url,
+        overview,
+        producers,
+        licensors,
+        themes,
+        demographics,
+        trailer,
+        source,
+        popularity,
+        rating,
+        rank,
+        top_genre_rank,
+        scored_by,
+        members,
+        favorites
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
 
-    ON CONFLICT(mal_id) DO UPDATE SET
-      id = excluded.id,
-      type = excluded.type,
-      title = excluded.title,
-      title_japanese = excluded.title_japanese,
-      title_synonyms = excluded.title_synonyms,
-      year = excluded.year,
-      season = excluded.season,
-      studio = excluded.studio,
-      studios = excluded.studios,
-      duration = excluded.duration,
-      episodes = excluded.episodes,
-      tags = excluded.tags,
-      age_rating = excluded.age_rating,
-      airing_date = excluded.airing_date,
-      ended_date = excluded.ended_date,
-      airing_status = excluded.airing_status,
-      image_url = CASE WHEN anime_info.image_url LIKE '%image.tmdb.org%' THEN anime_info.image_url ELSE excluded.image_url END,
-      overview = excluded.overview,
-      producers = excluded.producers,
-      licensors = excluded.licensors,
-      themes = excluded.themes,
-      demographics = excluded.demographics,
-      trailer = excluded.trailer,
-      source = excluded.source,
-      popularity = excluded.popularity,
-      rating = excluded.rating,
-      rank = excluded.rank,
-      top_genre_rank = excluded.top_genre_rank,
-      scored_by = excluded.scored_by,
-      members = excluded.members,
-      favorites = excluded.favorites,
-      updated_at = CURRENT_TIMESTAMP
-  `,  args: [
-    anime.id,
-    anime.type,
-    anime.title,
-    anime.title_japanese,
-    anime.title_synonyms,
-    anime.mal_id,
-    anime.year,
-    anime.season,
-    anime.studio,
-    anime.studios,
-    anime.audio,
-    anime.dubbed_languages,
-    anime.duration,
-    anime.episodes,
-    anime.tags,
-    anime.age_rating,
-    anime.total_seasons,
-    anime.airing_date,
-    anime.ended_date,
-    anime.airing_status,
-    anime.image_url,
-    anime.overview,
-    anime.producers,
-    anime.licensors,
-    anime.themes,
-    anime.demographics,
-    anime.trailer,
-    anime.source,
-    anime.popularity,
-    anime.rating,
-    anime.rank,
-    anime.top_genre_rank,
-    anime.scored_by,
-    anime.members,
-    anime.favorites
-  ] 
+      ON CONFLICT(mal_id) DO UPDATE SET
+        id = excluded.id,
+        type = excluded.type,
+        title = excluded.title,
+        title_japanese = excluded.title_japanese,
+        title_synonyms = excluded.title_synonyms,
+        year = excluded.year,
+        season = excluded.season,
+        studio = excluded.studio,
+        studios = excluded.studios,
+        duration = excluded.duration,
+        episodes = excluded.episodes,
+        tags = excluded.tags,
+        age_rating = excluded.age_rating,
+        airing_date = excluded.airing_date,
+        ended_date = excluded.ended_date,
+        airing_status = excluded.airing_status,
+        image_url = CASE WHEN anime_info.image_url LIKE '%image.tmdb.org%' THEN anime_info.image_url ELSE excluded.image_url END,
+        overview = excluded.overview,
+        producers = excluded.producers,
+        licensors = excluded.licensors,
+        themes = excluded.themes,
+        demographics = excluded.demographics,
+        trailer = excluded.trailer,
+        source = excluded.source,
+        popularity = excluded.popularity,
+        rating = excluded.rating,
+        rank = excluded.rank,
+        top_genre_rank = excluded.top_genre_rank,
+        scored_by = excluded.scored_by,
+        members = excluded.members,
+        favorites = excluded.favorites,
+        updated_at = CURRENT_TIMESTAMP
+    `,
+    args: [
+      anime.id,
+      anime.type,
+      anime.title,
+      anime.title_japanese,
+      anime.title_synonyms,
+      anime.mal_id,
+      anime.year,
+      anime.season,
+      anime.studio,
+      anime.studios,
+      anime.audio,
+      anime.dubbed_languages,
+      anime.duration,
+      anime.episodes,
+      anime.tags,
+      anime.age_rating,
+      anime.total_seasons,
+      anime.airing_date,
+      anime.ended_date,
+      anime.airing_status,
+      anime.image_url,
+      anime.overview,
+      anime.producers,
+      anime.licensors,
+      anime.themes,
+      anime.demographics,
+      anime.trailer,
+      anime.source,
+      anime.popularity,
+      anime.rating,
+      anime.rank,
+      anime.top_genre_rank,
+      anime.scored_by,
+      anime.members,
+      anime.favorites
+    ] 
   });
-    }
+           }
