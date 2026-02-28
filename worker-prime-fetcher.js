@@ -51,7 +51,7 @@ if (isNaN(page) || page < 1) page = 1;
 }
 let offset = parseInt(env.STATE ? (await env.STATE.get("jikan_offset")) || "0" : "0", 10);
 if (isNaN(offset) || offset < 0) offset = 0;
-const BATCH_SIZE = 9;
+const BATCH_SIZE = 13;
   console.log("Fetching Jikan page:", page);
   const result = await fetchJikan(page);
   const mediaList = result.data;
@@ -99,7 +99,7 @@ if (env.STATE) {
 }
 }
 async function refreshMissingImages(env, db, event) {
-  const BATCH_SIZE = 12;
+  const BATCH_SIZE = 15;
 
   // ===== Manual Override Logic =====
   const overrideApplied = env.STATE ? await env.STATE.get("refresh_override_applied") : null;
@@ -403,7 +403,7 @@ async function upsertAnime(db, anime) {
         favorites = excluded.favorites,
         updated_at = CURRENT_TIMESTAMP
     `,
-args: [
+    args: [
   anime.id,
   anime.type,
   anime.title,
@@ -441,4 +441,4 @@ args: [
   anime.favorites
 ].map(v => v === undefined ? null : v)
   });
-}
+    }
