@@ -1,4 +1,4 @@
-name = "anilist-sync"
+name = "worker-prime-fetcher"
 main = "worker-prime-fetcher.js"
 compatibility_date = "2024-12-01"
 workers_dev = true
