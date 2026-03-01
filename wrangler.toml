@@ -1,0 +1,15 @@
+name = "supreme-admin-worker"
+main = "admin-supreme.js"
+compatibility_date = "2025-02-04"
+workers_dev = true
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[placement]
+mode = "smart"
+
+[vars]
+TURSO_DATABASE_URL = "https://neon-anime-db-lupinarashi.turso.io"
+TURSO_AUTH_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzIzODM5MDYsImlkIjoiZGY1MzQ0OWEtZmNlNi00YzIwLTlhNWMtODdlY2JkZjZkNjA0IiwicmlkIjoiODcwYzBmZDUtNWM4Ny00MGYwLWFhZTYtYTE0YTUyZmEwZDk1In0.8CyXLFmtdOz8gvZCi-jXXeym-d3306vBqAGs6gRFxRDgkVV7F4CcjlNDipXoq1d06dfaNNmQkfi4xoPDbL0ZBA"
