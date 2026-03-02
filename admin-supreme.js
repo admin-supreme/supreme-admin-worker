@@ -1,4 +1,4 @@
-import { createClient } from "@libsql/client/web";
+import {  createClient } from "@libsql/client/web";
 import { Router } from "itty-router";
 function buildLibsqlClient(env) {
 const url = env.TURSO_DATABASE_URL && env.TURSO_DATABASE_URL.trim();
@@ -104,7 +104,7 @@ async function getAnime(db, id) {
     args: [id]
   });
 
-  const anime = animeResult.rows[0];
+  const anime = flattenAnimeFields(animeResult.rows[0]);
 
   if (!anime) {
     return json({ error: "Anime not found" }, 404);
@@ -129,6 +129,49 @@ async function getAnime(db, id) {
     streaming_links: episodes
   });
 }
+function flattenAnimeFields(anime) {
+  const copy = { ...anime };
+  if (copy.studios) {
+    copy.studios = Array.isArray(copy.studios)
+      ? copy.studios.map(s => s.name).join(", ")
+      : copy.studios;
+  }
+
+  if (copy.producers) {
+    copy.producers = Array.isArray(copy.producers)
+      ? copy.producers.map(p => p.name).join(", ")
+      : copy.producers;
+  }
+
+  if (copy.licensors) {
+    copy.licensors = Array.isArray(copy.licensors)
+      ? copy.licensors.map(l => l.name).join(", ")
+      : copy.licensors;
+  }
+
+  if (copy.tags) {
+    copy.tags = Array.isArray(copy.tags) ? copy.tags.join(", ") : copy.tags;
+  }
+
+  if (copy.themes) {
+    copy.themes = Array.isArray(copy.themes) ? copy.themes.join(", ") : copy.themes;
+  }
+
+  if (copy.demographics) {
+    copy.demographics = Array.isArray(copy.demographics)
+      ? copy.demographics.join(", ")
+      : copy.demographics;
+  }
+
+  // title_synonyms: simple comma-separated
+  if (copy.title_synonyms) {
+    copy.title_synonyms = Array.isArray(copy.title_synonyms)
+      ? copy.title_synonyms.join(", ")
+      : copy.title_synonyms;
+  }
+
+  return copy;
+}
 async function deleteAnime(db, id) {
   const result = await db.execute({
     sql: `DELETE FROM anime_info WHERE id = ?`,
@@ -144,7 +187,13 @@ async function deleteAnime(db, id) {
 async function createAnime(request, db) {
   const body = await request.json();
   const { anime_info, streaming_links } = body;
-
+anime_info.studios = anime_info.studios || "";
+anime_info.producers = anime_info.producers || "";
+anime_info.licensors = anime_info.licensors || "";
+anime_info.tags = anime_info.tags || "";
+anime_info.themes = anime_info.themes || "";
+anime_info.demographics = anime_info.demographics || "";
+anime_info.title_synonyms = anime_info.title_synonyms || "";
   if (!anime_info || !anime_info.id) {
     return json({ error: "Anime ID required" }, 400);
   }
@@ -202,6 +251,13 @@ async function updateAnime(request, db, id) {
     return json({ error: "Invalid payload" }, 400);
   }
 anime_info.id = id;
+anime_info.studios = anime_info.studios || "";
+anime_info.producers = anime_info.producers || "";
+anime_info.licensors = anime_info.licensors || "";
+anime_info.tags = anime_info.tags || "";
+anime_info.themes = anime_info.themes || "";
+anime_info.demographics = anime_info.demographics || "";
+anime_info.title_synonyms = anime_info.title_synonyms || "";
 const integerFields = [
   "mal_id", "year", "episodes", "total_seasons",
   "popularity", "rank", "scored_by",
@@ -368,4 +424,4 @@ function json(data, status = 200) {
       "Access-Control-Allow-Headers": "Content-Type"
     }
   });
-}
+        }
