@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.0"
-    "itty-router": "^5.0.23 "
+    "itty-router": "^5.0.23"
   },
   "devDependencies": {
     "wrangler": "^4.69.0"
