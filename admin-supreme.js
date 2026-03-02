@@ -1,4 +1,4 @@
-import { Client as LibsqlClient, createClient } from "@libsql/client/web";
+import { createClient } from "@libsql/client/web";
 import { Router } from "itty-router";
 function buildLibsqlClient(env) {
 const url = env.TURSO_DATABASE_URL && env.TURSO_DATABASE_URL.trim();
