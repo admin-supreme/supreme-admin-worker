@@ -1,0 +1,24 @@
+name = "supreme-admin-worker"
+main = "admin-supreme.js"
+compatibility_date = "2025-02-04"
+workers_dev = true
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[placement]
+mode = "smart"
+
+[vars]
+TURSO_DATABASE_URL = "Null"
+TURSO_AUTH_TOKEN = "Null"
+GITHUB_REPO = "username/repo-name"
+GITHUB_TOKEN = "Null"
+
+[[kv_namespaces]]
+binding = "EXPORT_STATE"
+id = "0ebb0d5e48c84cbaa5b76f80edb03f3d"
+
+[triggers]
+crons = ["0 * * * *"]

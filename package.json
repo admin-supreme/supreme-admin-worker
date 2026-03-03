@@ -1,0 +1,20 @@
+{
+  "name": "supreme-admin-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A Elite level worker made by L.Arashi to power The SQL of Neonanimeasia. if you can see this description so don,t get excited cuz the real game has just started now..",
+  "main": "admin-supreme.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "itty-router": "^5.0.23"
+  },
+  "devDependencies": {
+    "wrangler": "^4.69.0"
+  }
+}
