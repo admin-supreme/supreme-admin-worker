@@ -641,7 +641,6 @@ if (
 
   await new Promise(r => setTimeout(r, attempt * 2000));
 }
-  }
 }
 function toBase64Utf8(str) {
   const bytes = new TextEncoder().encode(str);
