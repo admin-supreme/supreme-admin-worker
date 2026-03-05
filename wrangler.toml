@@ -10,9 +10,23 @@ enabled = true
 [placement]
 mode = "smart"
 
+[vars]
+TURSO_DATABASE_URL = "https://neon-anime-db-lupinarashi.turso.io"
+
+GITHUB_REPO = "neon-play/neonanimeasia-official-cdn"
+GITHUB_OWNER = "neon-play"
+
 [[kv_namespaces]]
 binding = "EXPORT_STATE"
 id = "0ebb0d5e48c84cbaa5b76f80edb03f3d"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "e7585916fe054345853152d58bbf9f85"
+
+[[durable_objects.bindings]]
+name = "EXPORT_LOCK"
+class_name = "ExportLock"
 
 [triggers]
 crons = ["0 * * * *"]
