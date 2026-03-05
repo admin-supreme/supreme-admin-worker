@@ -12,7 +12,6 @@ mode = "smart"
 
 [vars]
 TURSO_DATABASE_URL = "https://neon-anime-db-lupinarashi.turso.io"
-
 GITHUB_REPO = "neon-play/neonanimeasia-official-cdn"
 GITHUB_OWNER = "neon-play"
 
@@ -27,6 +26,10 @@ id = "e7585916fe054345853152d58bbf9f85"
 [[durable_objects.bindings]]
 name = "EXPORT_LOCK"
 class_name = "ExportLock"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ExportLock"]
 
 [triggers]
 crons = ["0 * * * *"]
