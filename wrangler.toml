@@ -18,6 +18,9 @@ GITHUB_OWNER = "neon-play"
 [[kv_namespaces]]
 binding = "EXPORT_STATE"
 id = "0ebb0d5e48c84cbaa5b76f80edb03f3d"
+[[migrations]]
+tag = "remove-export-lock"
+deleted_classes = ["ExportLock"]
 
 [[kv_namespaces]]
 binding = "KV"
